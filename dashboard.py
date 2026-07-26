@@ -284,6 +284,14 @@ with st.sidebar.expander("Account suchen / hinzufügen", expanded=False):
             elif resp.status_code == 404:
                 st.error(f"Account {name}#{tag} in Region '{region}' "
                          "nicht gefunden.")
+            elif resp.status_code == 429:
+                st.error("Riot-Rate-Limit erreicht — gerade läuft ein "
+                         "anderer Daten-Abruf mit demselben API-Key. "
+                         "In 1–2 Minuten erneut versuchen.")
+            elif resp.status_code in (401, 403):
+                st.error("API-Key fehlt, ist ungültig oder abgelaufen — "
+                         "RIOT_API_KEY in den Secrets/Umgebungsvariablen "
+                         "prüfen.")
             elif resp.status_code != 200:
                 st.error(f"Riot-API-Fehler ({resp.status_code}) — "
                          "später erneut versuchen.")

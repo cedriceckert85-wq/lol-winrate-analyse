@@ -33,6 +33,8 @@ import requests
 ACCOUNTS = [
     ("xgazo", "xgazo"),
     ("Kurosakis wife", "777"),
+    ("BBroly", "Broly"),
+    ("Rocks D Xebec", "RIG"),
 ]
 ROUTING = "europe"        # Regionales Routing: europe | americas | asia | sea
 # Key aus Umgebungsvariable (lokal & Cloud-Hosting); Fallback: hier eintragen
