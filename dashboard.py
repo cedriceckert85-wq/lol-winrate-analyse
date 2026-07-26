@@ -832,6 +832,89 @@ else:
                "Stichproben und Auslese-Effekten bewusst nicht "
                "überinterpretiert.")
 
+# --- Klartext-Analyse: von Claude (KI) geschrieben, komplett ehrlich ---
+CLAUDE_TLDR = {
+    "xgazo#xgazo": """
+**Der Suchtspieler mit System.** 12 Spiele pro Tag, 5,6 Stunden täglich, 82
+Tage lang — das ist ein Halbtagsjob. 63 Sessions mit 8+ Spielen, Rekord: 23
+am Stück. Das Gute: Naafiri-Onetrick (62 % aller Spiele) mit echten 61 %
+über 590 Spiele — das ist Können. Das Brutale: **Alles außer Naafiri ist
+eine Katastrophe** — Kayn 29 %, Mel 36 %, Locke 36 %; die
+„Abwechslungs-Picks" haben ~40 Netto-Niederlagen gekostet. Dazu 116 Spiele
+zwischen 2 und 4 Uhr nachts mit 41 % — er weiß vermutlich, dass er müde
+schlechter spielt, und queued trotzdem. Jede vierte Niederlage wird
+aufgegeben.
+
+**Harte Wahrheit:** Mit der Hälfte der Spiele gäbe es mehr LP — nur Naafiri,
+nur abends, nachts schlafen. Er grindet nicht zu wenig, er grindet falsch.
+""",
+    "Kurosakis wife#777": """
+**Jeden Tag, ohne Ausnahme.** 66 aktive Tage von 66 möglichen, kein einziger
+Tag Pause, 5 Stunden täglich. Das Gute: die sauberste Spielweise der ganzen
+Gruppe — beste KDA (3,4), wenigste Tode, gibt am seltensten auf. Das
+Brutale: **Sie maint den falschen Champ.** Samira ist ihr meistgespielter
+(12 % aller Spiele) — mit 46 %. Ihre echten Gewinner-Champs Seraphine
+(70 %) und Lissandra (63 %) spielt sie kaum. Dazu der messbare Tilt-Knick
+bei exakt 2 Niederlagen (45 %, KDA sinkt) und klassisches Revenge-Queuing:
+Nach Pleiten drückt sie 3× so oft sofort wieder auf Start. Prime-Time
+20 Uhr: 36 %.
+
+**Harte Wahrheit:** Disziplin im Spiel, null Disziplin bei der Champ-Wahl —
+sie spielt, was Spaß macht, und gewinnt mit dem, was sie ignoriert. Und 66
+Tage ohne Pause ist keine Leidenschaft mehr, das ist Routine.
+""",
+    "BBroly#Broly": """
+**Der Aufgeber mit dem besten Ergebnis.** Der Gesunde im Vergleich: 1,8
+Spiele/Tag, 49 Minuten täglich — und prompt die beste Winrate der Gruppe
+(52,6 %). Volumen-Disziplin zahlt sich messbar aus. Das Brutale: **129
+verschiedene Champs, Main-Anteil 6 %** — auf nichts wirklich gut, weil er
+alles anspielt. Und er ist der **Surrender-König: 32 % seiner Niederlagen
+werden aufgegeben** — fast jedes dritte verlorene Spiel wird gar nicht zu
+Ende gekämpft. Nach Niederlagen steigen die Tode von 7,4 auf 9,4 — er wird
+hektisch. Mittags (11–15 Uhr) mit 35 % praktisch unspielbar, Freitag 40 %.
+
+**Harte Wahrheit:** Er gewinnt trotz seiner Schwächen, nicht wegen seiner
+Stärken — einfach weil er zu vernünftigen Zeiten in vernünftigen Mengen
+spielt. Mit einem 5-Champ-Pool und weniger FF15 wäre er der Einzige mit
+echtem Climb-Potenzial.
+""",
+    "Rocks D Xebec#RIG": """
+**Der Nachtarbeiter.** 433 Stunden — die meiste Spielzeit von allen. Zwei
+Drittel aller Spiele zwischen 23 und 4 Uhr nachts; Vampir-Rhythmus, aber
+einer, der funktioniert (1 Uhr nachts: 56 %). Das Gute: mental der
+Stabilste — kein Tilt, keine langen Pleitenserien (Maximum: 4), hört auf,
+wenn es nicht läuft. Das können die anderen drei nicht. Das Brutale: **162
+Jungle-Spiele mit 45 %** — er queued seit Monaten stur eine Rolle, die ihn
+nachweislich Winrate kostet. Dazu 123 Champs ohne echten Main (Yunara 6 %)
+und ausgerechnet die Standard-ADCs (Caitlyn, Vayne, Jinx, Samira) alle
+unter 48 %. Der frühe Abend (18–19 Uhr) ist mit 35–45 % sein Blindspot.
+
+**Harte Wahrheit:** 433 Stunden für 51 % ist der schlechteste
+Stunden-zu-Fortschritt-Deal der Gruppe. Sein Kopf ist der stärkste, sein
+Zeiteinsatz der größte — und er verbrennt beides mit Jungle-Queues und
+einem Champ-Pool ohne Fokus.
+""",
+}
+
+GRUPPEN_FAZIT = """
+**Gruppen-Fazit, ungeschönt:** Alle vier pendeln nach hunderten Spielen bei
+~51 % — das ist kein Pech und keine „Elo Hell", das Matchmaking hat jeden
+exakt da einsortiert, wo er hingehört. Zusammen stecken ~1.550 Stunden (64
+volle Tage) in ~3.200 Spielen, und keiner klettert. Der mit der wenigsten
+Spielzeit hat die beste Winrate; die zwei mit 5+ Stunden täglich treten auf
+der Stelle. Nicht die Menge entscheidet, sondern: richtiger Champ, richtige
+Uhrzeit, aufhören können.
+"""
+
+if account in CLAUDE_TLDR:
+    st.markdown("#### Klartext-Analyse")
+    st.caption("Von Claude (KI) aus der gesamten Historie geschrieben — "
+               "komplett ehrlich, Stand 26.07.2026, unabhängig von den "
+               "Filtern oben.")
+    st.markdown(CLAUDE_TLDR[account])
+    with st.expander("Gruppen-Fazit (alle vier Accounts im Vergleich)"):
+        st.markdown(GRUPPEN_FAZIT)
+
 st.caption(
     f"Datengrundlage: {len(df_all)} Matches aus matches.db · "
     f"Riot-API-Limit: max. ~1000 Spiele / ~2 Jahre Historie · "
