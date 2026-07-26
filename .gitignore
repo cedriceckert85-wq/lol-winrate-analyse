@@ -1,0 +1,6 @@
+# Geheimnisse — niemals committen
+.streamlit/secrets.toml
+
+# Logs & Python-Artefakte
+*.log
+__pycache__/
