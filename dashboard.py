@@ -683,6 +683,70 @@ for (col, label), g in context_tables.items():
             show[[label, "n (Spiele)", "Siege", "Winrate", "95%-CI", "Abweichung"]],
             hide_index=True, width="stretch")
 
+# ===========================================================================
+# 6) TL;DR — automatisch generierte Zusammenfassung pro Account
+# ===========================================================================
+st.divider()
+st.subheader(f"TL;DR — {account}")
+st.caption("ML-Zusammenfassung: automatisch aus allen Spielen dieses Accounts "
+           "generiert (unabhängig von den Filtern oben).")
+
+t = df_all
+twr = t["win"].mean() * 100
+tldr = [f"**{len(t)} Spiele**, Gesamt-Winrate **{twr:.0f} %**."]
+
+def _bw(col, fmt):
+    """Beste/schlechteste Ausprägung einer Dimension (nur n>=MIN_N)."""
+    g = winrate_stats(t.dropna(subset=[col]), col, twr)
+    g = g[g["n"] >= MIN_N]
+    if len(g) < 2:
+        return None, None
+    return g.loc[g["wr"].idxmax()], g.loc[g["wr"].idxmin()]
+
+b, w = _bw("stunde", None)
+if b is not None:
+    tldr.append(f"**Beste Uhrzeit:** {int(b['stunde'])} Uhr mit "
+                f"{b['wr']:.0f} % Winrate (n={int(b['n'])}) — "
+                f"**schlechteste:** {int(w['stunde'])} Uhr mit nur "
+                f"{w['wr']:.0f} % (n={int(w['n'])}).")
+
+b, w = _bw("wochentag", None)
+if b is not None:
+    tldr.append(f"**Stärkster Tag:** {b['wochentag']} ({b['wr']:.0f} %) — "
+                f"**schwächster:** {w['wochentag']} ({w['wr']:.0f} %).")
+
+b, w = _bw("champion", None)
+if b is not None:
+    tldr.append(f"**Bester Champion:** {b['champion']} mit {b['wr']:.0f} % "
+                f"über {int(b['n'])} Spiele — **schlechtester:** "
+                f"{w['champion']} mit {w['wr']:.0f} % ({int(w['n'])} Spiele).")
+
+g = winrate_stats(t.dropna(subset=["session_pos_bucket"]),
+                  "session_pos_bucket", twr)
+r1 = g[g["session_pos_bucket"] == "1. Spiel"]
+if len(r1) and r1.iloc[0]["n"] >= MIN_N and r1.iloc[0]["wr"] < twr - 3:
+    tldr.append(f"**Kaltstart-Problem:** Das erste Spiel einer Session liegt "
+                f"bei nur {r1.iloc[0]['wr']:.0f} % — das erste Spiel als "
+                f"Aufwärmen sehen.")
+
+g = winrate_stats(t.dropna(subset=["ns_bucket"]), "ns_bucket", twr)
+r2 = g[g["ns_bucket"].astype(str).isin(["2", "3+"])]
+r2 = r2[r2["n"] >= MIN_N]
+if len(r2):
+    worst_streak = r2.loc[r2["wr"].idxmin()]
+    if worst_streak["wr"] < twr - 5:
+        tldr.append(f"**Tilt-Warnung:** Nach {worst_streak['ns_bucket']} "
+                    f"Niederlagen in Folge fällt die Winrate auf "
+                    f"{worst_streak['wr']:.0f} % — dann lieber Pause machen.")
+    elif r2["wr"].min() >= twr:
+        tldr.append("**Kein Tilt-Problem:** Auch nach Niederlagenserien "
+                    "bleibt die Winrate stabil oder steigt sogar.")
+
+if len(tldr) <= 1:
+    tldr.append("Noch zu wenig Daten für belastbare Aussagen — "
+                "mehr Spiele nötig.")
+st.markdown("\n".join(f"- {line}" for line in tldr))
+
 st.caption(
     f"Datengrundlage: {len(df_all)} Matches aus matches.db · "
     f"Riot-API-Limit: max. ~1000 Spiele / ~2 Jahre Historie · "
