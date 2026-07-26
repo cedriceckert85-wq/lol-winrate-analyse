@@ -701,124 +701,136 @@ for (col, label), g in context_tables.items():
 st.divider()
 st.subheader(f"TL;DR — {account}")
 st.caption("ML-Zusammenfassung: automatisch aus den Ranked-Spielen dieses "
-           "Accounts generiert (unabhängig von den Filtern oben). "
-           "Serien-Werte = Niederlagen innerhalb derselben Session.")
+           "Accounts im gewählten Zeitraum generiert (Queue-/Champion-/"
+           "Rollen-Filter werden ignoriert). Serien-Werte = Niederlagen "
+           "innerhalb derselben Session.")
 
-t = df_all[df_all["queue_id"].isin([420, 440])]
+# Zeitraum-Filter aus der Sidebar übernehmen
+tz_von, tz_bis = dmin, dmax
+if isinstance(f_zeit, tuple) and len(f_zeit) == 2:
+    tz_von, tz_bis = f_zeit
+zeitraum_txt = ("" if (tz_von, tz_bis) == (dmin, dmax) else
+                f" · Zeitraum {tz_von.strftime('%d.%m.%Y')}–"
+                f"{tz_bis.strftime('%d.%m.%Y')}")
+im_zeitraum = df_all[(df_all["datum"] >= tz_von) & (df_all["datum"] <= tz_bis)]
+
+t = im_zeitraum[im_zeitraum["queue_id"].isin([420, 440])]
 basis = (f"{len(t)} Ranked-Spiele "
          f"({int((t['queue_id'] == 420).sum())} Solo/Duo, "
-         f"{int((t['queue_id'] == 440).sum())} Flex)")
+         f"{int((t['queue_id'] == 440).sum())} Flex){zeitraum_txt}")
 if len(t) < 50:
-    t = df_all
-    basis = (f"{len(t)} Spiele über alle Queues "
+    t = im_zeitraum
+    basis = (f"{len(t)} Spiele über alle Queues{zeitraum_txt} "
              "(zu wenig Ranked-Spiele für eine reine Ranked-Auswertung)")
 
-twr = t["win"].mean() * 100
-tl = [f"**Datenbasis:** {basis} · Winrate **{twr:.1f} %** · "
-      f"Ø-KDA {t['kda'].mean():.2f}"]
-
-
-def _best_worst(frame, col, min_n=MIN_N):
-    g = winrate_stats(frame.dropna(subset=[col]), col, twr)
-    g = g[g["n"] >= min_n]
-    if len(g) < 2:
-        return None, None
-    return g.loc[g["wr"].idxmax()], g.loc[g["wr"].idxmin()]
-
-
-# --- Wann ---
-b, w = _best_worst(t, "stunde")
-if b is not None:
-    tl.append(f"**Beste Uhrzeit:** {int(b['stunde'])} Uhr — {b['wr']:.0f} % "
-              f"Winrate (n={int(b['n'])}). **Schlechteste:** "
-              f"{int(w['stunde'])} Uhr — {w['wr']:.0f} % (n={int(w['n'])}).")
-b, w = _best_worst(t, "wochentag")
-if b is not None:
-    tl.append(f"**Stärkster Tag:** {b['wochentag']} ({b['wr']:.0f} %, "
-              f"n={int(b['n'])}) — **schwächster:** {w['wochentag']} "
-              f"({w['wr']:.0f} %, n={int(w['n'])}).")
-spaet = t[t["stunde"].isin([2, 3, 4])]
-if len(spaet) >= MIN_N and spaet["win"].mean() * 100 < twr - 5:
-    tl.append(f"**Späte Nacht kostet:** zwischen 2 und 4 Uhr nur "
-              f"{spaet['win'].mean()*100:.0f} % Winrate "
-              f"({len(spaet)} Spiele).")
-
-# --- Champions (beste = über dem eigenen Schnitt, schlechteste = darunter,
-# damit sich die Listen bei wenigen Champions nicht überschneiden) ---
-g = winrate_stats(t, "champion", twr)
-g = g[g["n"] >= MIN_N].sort_values("wr")
-top = g[g["wr"] >= twr].tail(3).iloc[::-1]
-flop = g[g["wr"] < twr].head(3)
-if len(top):
-    tl.append("**Beste Champions:** " + " · ".join(
-        f"{r.champion} {r.wr:.0f} % ({r.n} Spiele)" for r in top.itertuples())
-        + ".")
-if len(flop):
-    tl.append("**Schlechteste Champions:** " + " · ".join(
-        f"{r.champion} {r.wr:.0f} % ({r.n} Spiele)" for r in flop.itertuples())
-        + ".")
-
-# --- Rollen ---
-g = winrate_stats(t[t["rolle"] != "Unbekannt"], "rolle", twr)
-g = g[g["n"] >= 30]
-if len(g) >= 2:
-    rb = g.loc[g["wr"].idxmax()]
-    rw = g.loc[g["wr"].idxmin()]
-    if rb["wr"] - rw["wr"] >= 5:
-        tl.append(f"**Rollen:** {rb['rolle']} läuft ({rb['wr']:.0f} %, "
-                  f"n={int(rb['n'])}) — {rw['rolle']} kostet Winrate "
-                  f"({rw['wr']:.0f} %, n={int(rw['n'])}).")
-
-# --- Tilt-Check (In-Session-Serien, Tode-Trend, Revenge-Queue) ---
-g = t.groupby("sstreak_bucket", observed=True).agg(
-    n=("win", "count"), wr=("win", "mean"), tode=("deaths", "mean"))
-g["wr"] *= 100
-tilt = []
-if "2+" in g.index and g.loc["2+", "n"] >= 30:
-    wr2 = g.loc["2+", "wr"]
-    if wr2 < twr - 4:
-        tilt.append(f"nach 2+ Niederlagen in Folge fällt die Winrate auf "
-                    f"{wr2:.0f} % (n={int(g.loc['2+', 'n'])}) — der Punkt "
-                    f"für eine Pause")
-    if ("0" in g.index
-            and g.loc["2+", "tode"] >= g.loc["0", "tode"] + 1):
-        tilt.append(f"nach Niederlagen steigen die Tode pro Spiel von "
-                    f"{g.loc['0', 'tode']:.1f} auf "
-                    f"{g.loc['2+', 'tode']:.1f} — hektischere Spielweise")
-rq = df_all.dropna(subset=["pause_min"]).copy()
-rq["prev_win"] = df_all["win"].shift(1)
-rq = rq[rq["pause_min"] <= SESSION_GAP_H * 60]
-nach_n = rq[rq["prev_win"] == 0]
-nach_s = rq[rq["prev_win"] == 1]
-if len(nach_n) >= 50 and len(nach_s) >= 50:
-    qn = (nach_n["pause_min"] < REQUEUE_MIN).mean() * 100
-    qs = (nach_s["pause_min"] < REQUEUE_MIN).mean() * 100
-    if qn >= qs * 1.5 and qn >= 15:
-        tilt.append(f"Revenge-Queue-Muster: nach Niederlagen {qn:.0f} % "
-                    f"Sofort-Requeue (<5 min), nach Siegen nur {qs:.0f} %")
-if tilt:
-    tl.append("**Tilt-Check:** " + "; ".join(tilt) + ".")
+if len(t) < MIN_N:
+    st.info(f"Nur {len(t)} Spiele im gewählten Zeitraum — zu wenig für "
+            "eine Zusammenfassung. Zeitraum-Filter erweitern.")
 else:
-    tl.append("**Tilt-Check:** kein messbarer Einbruch nach "
-              "Niederlagenserien — die Ergebnisse bleiben stabil.")
+    twr = t["win"].mean() * 100
+    tl = [f"**Datenbasis:** {basis} · Winrate **{twr:.1f} %** · "
+          f"Ø-KDA {t['kda'].mean():.2f}"]
 
-# --- Kaltstart ---
-g = winrate_stats(t.dropna(subset=["session_pos_bucket"]),
-                  "session_pos_bucket", twr)
-r1 = g[g["session_pos_bucket"] == "1. Spiel"]
-if len(r1) and r1.iloc[0]["n"] >= 30 and r1.iloc[0]["wr"] < twr - 3:
-    tl.append(f"**Kaltstart:** das erste Spiel einer Session liegt bei nur "
-              f"{r1.iloc[0]['wr']:.0f} % (n={int(r1.iloc[0]['n'])}) — "
-              f"das erste Spiel als Aufwärmen sehen.")
+    def _best_worst(frame, col, min_n=MIN_N):
+        g = winrate_stats(frame.dropna(subset=[col]), col, twr)
+        g = g[g["n"] >= min_n]
+        if len(g) < 2:
+            return None, None
+        return g.loc[g["wr"].idxmax()], g.loc[g["wr"].idxmin()]
 
-if len(tl) <= 1:
-    tl.append("Noch zu wenig Daten für belastbare Aussagen — "
-              "mehr Spiele nötig.")
-st.markdown("\n".join(f"- {x}" for x in tl))
-st.caption("Methodik-Hinweis: Es fließen nur Werte mit ausreichend Spielen "
-           "ein (Zeiten/Champions ab n=15, Rollen/Serien ab n=30). Lange "
-           "Niederlagenserien (3+) werden wegen kleiner Stichproben und "
-           "Auslese-Effekten bewusst nicht überinterpretiert.")
+    # --- Wann ---
+    b, w = _best_worst(t, "stunde")
+    if b is not None:
+        tl.append(f"**Beste Uhrzeit:** {int(b['stunde'])} Uhr — "
+                  f"{b['wr']:.0f} % Winrate (n={int(b['n'])}). "
+                  f"**Schlechteste:** {int(w['stunde'])} Uhr — "
+                  f"{w['wr']:.0f} % (n={int(w['n'])}).")
+    b, w = _best_worst(t, "wochentag")
+    if b is not None:
+        tl.append(f"**Stärkster Tag:** {b['wochentag']} ({b['wr']:.0f} %, "
+                  f"n={int(b['n'])}) — **schwächster:** {w['wochentag']} "
+                  f"({w['wr']:.0f} %, n={int(w['n'])}).")
+    spaet = t[t["stunde"].isin([2, 3, 4])]
+    if len(spaet) >= MIN_N and spaet["win"].mean() * 100 < twr - 5:
+        tl.append(f"**Späte Nacht kostet:** zwischen 2 und 4 Uhr nur "
+                  f"{spaet['win'].mean()*100:.0f} % Winrate "
+                  f"({len(spaet)} Spiele).")
+
+    # --- Champions (beste = über dem eigenen Schnitt, schlechteste =
+    # darunter, damit sich die Listen nicht überschneiden) ---
+    g = winrate_stats(t, "champion", twr)
+    g = g[g["n"] >= MIN_N].sort_values("wr")
+    top = g[g["wr"] >= twr].tail(3).iloc[::-1]
+    flop = g[g["wr"] < twr].head(3)
+    if len(top):
+        tl.append("**Beste Champions:** " + " · ".join(
+            f"{r.champion} {r.wr:.0f} % ({r.n} Spiele)"
+            for r in top.itertuples()) + ".")
+    if len(flop):
+        tl.append("**Schlechteste Champions:** " + " · ".join(
+            f"{r.champion} {r.wr:.0f} % ({r.n} Spiele)"
+            for r in flop.itertuples()) + ".")
+
+    # --- Rollen ---
+    g = winrate_stats(t[t["rolle"] != "Unbekannt"], "rolle", twr)
+    g = g[g["n"] >= 30]
+    if len(g) >= 2:
+        rb = g.loc[g["wr"].idxmax()]
+        rw = g.loc[g["wr"].idxmin()]
+        if rb["wr"] - rw["wr"] >= 5:
+            tl.append(f"**Rollen:** {rb['rolle']} läuft ({rb['wr']:.0f} %, "
+                      f"n={int(rb['n'])}) — {rw['rolle']} kostet Winrate "
+                      f"({rw['wr']:.0f} %, n={int(rw['n'])}).")
+
+    # --- Tilt-Check (In-Session-Serien, Tode-Trend, Revenge-Queue) ---
+    g = t.groupby("sstreak_bucket", observed=True).agg(
+        n=("win", "count"), wr=("win", "mean"), tode=("deaths", "mean"))
+    g["wr"] *= 100
+    tilt = []
+    if "2+" in g.index and g.loc["2+", "n"] >= 30:
+        wr2 = g.loc["2+", "wr"]
+        if wr2 < twr - 4:
+            tilt.append(f"nach 2+ Niederlagen in Folge fällt die Winrate "
+                        f"auf {wr2:.0f} % (n={int(g.loc['2+', 'n'])}) — "
+                        f"der Punkt für eine Pause")
+        if ("0" in g.index
+                and g.loc["2+", "tode"] >= g.loc["0", "tode"] + 1):
+            tilt.append(f"nach Niederlagen steigen die Tode pro Spiel von "
+                        f"{g.loc['0', 'tode']:.1f} auf "
+                        f"{g.loc['2+', 'tode']:.1f} — hektischere Spielweise")
+    rq = im_zeitraum.dropna(subset=["pause_min"]).copy()
+    rq["prev_win"] = im_zeitraum["win"].shift(1)
+    rq = rq[rq["pause_min"] <= SESSION_GAP_H * 60]
+    nach_n = rq[rq["prev_win"] == 0]
+    nach_s = rq[rq["prev_win"] == 1]
+    if len(nach_n) >= 50 and len(nach_s) >= 50:
+        qn = (nach_n["pause_min"] < REQUEUE_MIN).mean() * 100
+        qs = (nach_s["pause_min"] < REQUEUE_MIN).mean() * 100
+        if qn >= qs * 1.5 and qn >= 15:
+            tilt.append(f"Revenge-Queue-Muster: nach Niederlagen "
+                        f"{qn:.0f} % Sofort-Requeue (<5 min), nach Siegen "
+                        f"nur {qs:.0f} %")
+    if tilt:
+        tl.append("**Tilt-Check:** " + "; ".join(tilt) + ".")
+    else:
+        tl.append("**Tilt-Check:** kein messbarer Einbruch nach "
+                  "Niederlagenserien — die Ergebnisse bleiben stabil.")
+
+    # --- Kaltstart ---
+    g = winrate_stats(t.dropna(subset=["session_pos_bucket"]),
+                      "session_pos_bucket", twr)
+    r1 = g[g["session_pos_bucket"] == "1. Spiel"]
+    if len(r1) and r1.iloc[0]["n"] >= 30 and r1.iloc[0]["wr"] < twr - 3:
+        tl.append(f"**Kaltstart:** das erste Spiel einer Session liegt bei "
+                  f"nur {r1.iloc[0]['wr']:.0f} % (n={int(r1.iloc[0]['n'])}) "
+                  f"— das erste Spiel als Aufwärmen sehen.")
+
+    st.markdown("\n".join(f"- {x}" for x in tl))
+    st.caption("Methodik-Hinweis: Es fließen nur Werte mit ausreichend "
+               "Spielen ein (Zeiten/Champions ab n=15, Rollen/Serien ab "
+               "n=30). Lange Niederlagenserien (3+) werden wegen kleiner "
+               "Stichproben und Auslese-Effekten bewusst nicht "
+               "überinterpretiert.")
 
 st.caption(
     f"Datengrundlage: {len(df_all)} Matches aus matches.db · "
